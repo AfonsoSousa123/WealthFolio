@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WealthFolio - Investment Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS for Excel operations -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+      /* Custom scrollbar for better aesthetics */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9; 
+      }
+      .dark ::-webkit-scrollbar-track {
+        background: #020617; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155; 
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #475569; 
+      }
+    </style>
+<link rel="stylesheet" href="/index.css">
+    <style>
+      /* Hide Vite's internal error overlay */
+      #vite-error-overlay, [id^="vite-error-overlay"] { display: none !important; }
+    </style>
+    <script>
+      // Suppress annoying Vite HMR errors and Recharts layout warnings that are benign in this environment
+      const suppressPatterns = [
+        'WebSocket', 
+        'vite', 
+        'HMR', 
+        'hot-reload', 
+        'closed without opened',
+        'width(-1)', 
+        'height(-1)',
+        'check the style of container'
+      ];
+      
+      function shouldSuppress(msg) {
+        if (!msg) return false;
+        const str = String(msg);
+        return suppressPatterns.some(p => str.toLowerCase().includes(p.toLowerCase()));
+      }
+
+      window.addEventListener('unhandledrejection', function(event) {
+        if (shouldSuppress(event.reason) || shouldSuppress(event.reason?.message)) {
+          event.stopImmediatePropagation();
+          event.preventDefault();
+        }
+      }, true);
+
+      window.addEventListener('error', function(event) {
+        if (shouldSuppress(event.message) || shouldSuppress(event.error)) {
+          event.stopImmediatePropagation();
+          event.preventDefault();
+        }
+      }, true);
+
+      // Wrap console.error and console.warn to silence specific messages
+      const originalConsoleError = console.error;
+      console.error = function() {
+        if (arguments[0] && shouldSuppress(arguments[0])) return;
+        originalConsoleError.apply(console, arguments);
+      };
+
+      const originalConsoleWarn = console.warn;
+      console.warn = function() {
+        if (arguments[0] && shouldSuppress(arguments[0])) return;
+        originalConsoleWarn.apply(console, arguments);
+      };
+    </script>
+</head>
+  <body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-cyan-900 dark:selection:text-cyan-100 dark:bg-slate-950">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "WealthFolio",
+  "description": "A comprehensive brokerage management dashboard to track stocks, ETFs, and commodities with AI-powered portfolio analysis and Excel import/export capabilities.",
+  "requestFramePermissions": []
+}
