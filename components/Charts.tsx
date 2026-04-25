@@ -72,6 +72,7 @@ export const calculateSMA = (data: any[], period: number) => {
 };
 
 export const calculateEMA = (data: any[], period: number) => {
+  if (!data || data.length === 0) return data;
   const k = 2 / (period + 1);
   let ema = data[0].price;
   
@@ -129,6 +130,7 @@ export const calculateBollingerBands = (data: any[], period: number = 20, stdDev
 };
 
 export const calculateRSI = (data: any[], period: number = 14) => {
+  if (!data || data.length <= period) return data;
   let gains = 0;
   let losses = 0;
   
@@ -223,7 +225,7 @@ export const TechnicalAnalysisChart: React.FC<{
   };
 
   return (
-    <div className={`transition-all duration-300 ${showRSI || showMACD ? 'h-[600px]' : (typeof height === 'number' ? `${height}px` : height)} flex flex-col relative`}>
+    <div className={`transition-all duration-300 flex flex-col relative`} style={{ height: showRSI || showMACD ? 600 : height }}>
       <div className={`${showRSI && showMACD ? 'h-[50%]' : (showRSI || showMACD) ? 'h-[65%]' : 'h-full'} w-full flex-grow`}>
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <ComposedChart 

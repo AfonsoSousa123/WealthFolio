@@ -267,60 +267,69 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-              {asset.symbol}
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter
-                ${asset.type === 'Stock' || asset.type === 'Ações' ? 'border border-blue-500/30 text-blue-400 bg-blue-500/5' : 
-                  asset.type === 'ETF' ? 'border border-violet-500/30 text-violet-400 bg-violet-500/5' : 
-                  asset.type === 'Commodity' || asset.type === 'Ouro' ? 'border border-amber-500/30 text-amber-400 bg-amber-500/5' : 
-                  asset.type === 'Crypto' || asset.type === 'Cripto' ? 'border border-orange-500/30 text-orange-400 bg-orange-500/5' :
-                  'border border-slate-500/30 text-slate-400 bg-slate-500/5'}`}>
-                {t(asset.type)}
-              </span>
-            </h1>
-            {asset.isin && (
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-3">
-                {asset.isin}
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 dark:text-slate-400 bg-slate-500/5">
-                  ISIN
+            <div className="flex flex-col gap-1">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                {asset.symbol}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter
+                  ${asset.type === 'Stock' || asset.type === 'Ações' ? 'border border-blue-500/30 text-blue-400 bg-blue-500/5' : 
+                    asset.type === 'ETF' ? 'border border-violet-500/30 text-violet-400 bg-violet-500/5' : 
+                    asset.type === 'Commodity' || asset.type === 'Ouro' ? 'border border-amber-500/30 text-amber-400 bg-amber-500/5' : 
+                    asset.type === 'Crypto' || asset.type === 'Cripto' ? 'border border-orange-500/30 text-orange-400 bg-orange-500/5' :
+                    'border border-slate-500/30 text-slate-400 bg-slate-500/5'}`}>
+                  {t(asset.type)}
                 </span>
-                <button 
-                  onClick={() => handleCopy(asset.isin!, 'isin')}
-                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ml-1"
-                  title="Copy ISIN"
-                >
-                  {copiedField === 'isin' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
-                </button>
-              </h2>
-            )}
-            {asset.wkn && (
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-3">
-                {asset.wkn}
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 dark:text-slate-400 bg-slate-500/5">
-                  WKN
-                </span>
-                <button 
-                  onClick={() => handleCopy(asset.wkn!, 'wkn')}
-                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ml-1"
-                  title="Copy WKN"
-                >
-                  {copiedField === 'wkn' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
-                </button>
-              </h2>
-            )}
-            <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">{asset.name}</p>
-            
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-1.5">
-                <span>Ticker</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300 font-medium">{asset.symbol}</span>
                 <button 
                   onClick={() => handleCopy(asset.symbol, 'ticker')}
-                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ml-1"
                   title="Copy Ticker"
                 >
-                  {copiedField === 'ticker' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedField === 'ticker' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
                 </button>
+              </h1>
+
+              {asset.isin && (
+                <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                  {asset.isin}
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 bg-slate-500/5">
+                    ISIN
+                  </span>
+                  <button 
+                    onClick={() => handleCopy(asset.isin!, 'isin')}
+                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                    title="Copy ISIN"
+                  >
+                    {copiedField === 'isin' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                  </button>
+                </h2>
+              )}
+
+              {asset.wkn && (
+                <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                  {asset.wkn}
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 bg-slate-500/5">
+                    WKN
+                  </span>
+                  <button 
+                    onClick={() => handleCopy(asset.wkn!, 'wkn')}
+                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                    title="Copy WKN"
+                  >
+                    {copiedField === 'wkn' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                  </button>
+                </h2>
+              )}
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">{asset.name}</p>
+            
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {asset.quantity} {t('shares')}
+                </span>
+                <span className="text-slate-400">@</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  €{asset.avgPrice.toFixed(2)}
+                </span>
               </div>
             </div>
           </div>

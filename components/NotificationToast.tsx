@@ -5,6 +5,7 @@ export interface Notification {
   title: string;
   message: string;
   type: 'success' | 'warning' | 'info';
+  timestamp?: Date;
 }
 
 interface NotificationToastProps {

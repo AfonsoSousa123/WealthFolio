@@ -43,10 +43,14 @@ const App: React.FC = () => {
   // Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<AssetType | 'All'>('All');
+  const [filterDistribution, setFilterDistribution] = useState<string>('All');
+  const [filterReplication, setFilterReplication] = useState<string>('All');
   
   // Alert State
   const [alertAsset, setAlertAsset] = useState<Asset | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationHistory, setNotificationHistory] = useState<Notification[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const { t, i18n } = useTranslation();
   
@@ -95,9 +99,22 @@ const App: React.FC = () => {
       const matchesSearch = asset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             asset.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'All' || asset.type === filterType;
-      return matchesSearch && matchesType;
+      
+      let matchesDistribution = true;
+      let matchesReplication = true;
+      
+      if (asset.type === AssetType.ETF) {
+        if (filterDistribution !== 'All') {
+            matchesDistribution = asset.distribution?.toLowerCase() === filterDistribution.toLowerCase();
+        }
+        if (filterReplication !== 'All') {
+            matchesReplication = asset.replication?.toLowerCase() === filterReplication.toLowerCase();
+        }
+      }
+
+      return matchesSearch && matchesType && matchesDistribution && matchesReplication;
     });
-  }, [assets, searchTerm, filterType]);
+  }, [assets, searchTerm, filterType, filterDistribution, filterReplication]);
 
   // Check for alerts whenever assets change
   useEffect(() => {
@@ -124,11 +141,19 @@ const App: React.FC = () => {
   }, [assets]);
 
   const addNotification = (notification: Notification) => {
+    const newNotification = { ...notification, timestamp: new Date() };
+    
     // Prevent duplicate notifications for the exact same message in short succession
     setNotifications(prev => {
-      const exists = prev.some(n => n.message === notification.message);
+      const exists = prev.some(n => n.message === newNotification.message);
       if (exists) return prev;
-      return [...prev, notification];
+      return [...prev, newNotification];
+    });
+
+    setNotificationHistory(prev => {
+      const exists = prev.some(n => n.message === newNotification.message && n.timestamp && newNotification.timestamp && (newNotification.timestamp.getTime() - n.timestamp.getTime() < 1000));
+      if (exists) return prev;
+      return [newNotification, ...prev].slice(0, 50); // Keep last 50
     });
   };
 
@@ -295,6 +320,67 @@ const App: React.FC = () => {
                      </svg>
                    )}
                  </button>
+                 
+                 <div className="relative">
+                   <button
+                     onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                     className="relative p-2.5 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-cyan-300 dark:hover:bg-slate-800/50 transition-all duration-200"
+                   >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                     </svg>
+                     {notificationHistory.length > 0 && (
+                       <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+                     )}
+                   </button>
+                   
+                   {isNotificationsOpen && (
+                     <>
+                       <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)}></div>
+                       <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden transform origin-top-right transition-all">
+                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                           <h3 className="font-bold text-slate-800 dark:text-white">{t('Notifications')}</h3>
+                           <button onClick={() => setNotificationHistory([])} className="text-xs text-blue-500 hover:text-blue-600 font-medium">{t('Clear all')}</button>
+                         </div>
+                         <div className="max-h-96 overflow-y-auto">
+                           {notificationHistory.length === 0 ? (
+                             <div className="p-8 text-center text-slate-500 text-sm">
+                               {t('No notifications yet')}
+                             </div>
+                           ) : (
+                             <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                               {notificationHistory.map((notif, idx) => (
+                                 <div key={notif.id || idx} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                   <div className="flex items-start gap-3">
+                                     <div className={`mt-0.5 rounded-full p-1.5 ${
+                                       notif.type === 'success' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' :
+                                       notif.type === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
+                                       'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                     }`}>
+                                      {notif.type === 'success' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                                      {notif.type === 'warning' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+                                      {notif.type === 'info' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                     </div>
+                                     <div>
+                                       <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">{notif.title}</h4>
+                                       <p className="text-xs text-slate-500 mt-1 leading-snug">{notif.message}</p>
+                                       {notif.timestamp && (
+                                         <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider">
+                                           {notif.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                         </p>
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     </>
+                   )}
+                 </div>
+
                  {!selectedAsset && (
                    <button 
                     onClick={handleAIAnalysis}
@@ -503,6 +589,32 @@ const App: React.FC = () => {
                         ))}
                       </select>
                     </div>
+                    {filterType === AssetType.ETF && (
+                      <>
+                        <div className="min-w-[150px]">
+                           <select 
+                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all cursor-pointer"
+                            value={filterDistribution}
+                            onChange={e => setFilterDistribution(e.target.value)}
+                           >
+                             <option value="All">{t('All Distributions')}</option>
+                             <option value="Accumulating">{t('Accumulating')}</option>
+                             <option value="Distributing">{t('Distributing')}</option>
+                           </select>
+                        </div>
+                        <div className="min-w-[150px]">
+                           <select 
+                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all cursor-pointer"
+                            value={filterReplication}
+                            onChange={e => setFilterReplication(e.target.value)}
+                           >
+                             <option value="All">{t('All Replications')}</option>
+                             <option value="Physical">{t('Physical')}</option>
+                             <option value="Synthetic">{t('Synthetic')}</option>
+                           </select>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

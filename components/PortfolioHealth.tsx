@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Asset } from '../types';
 import { useTranslation } from 'react-i18next';
+import { RebalancingModal } from './RebalancingModal';
 
 interface PortfolioHealthProps {
   assets: Asset[];
@@ -8,6 +9,7 @@ interface PortfolioHealthProps {
 
 export const PortfolioHealth: React.FC<PortfolioHealthProps> = ({ assets }) => {
   const { t } = useTranslation();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const totalValue = assets.reduce((sum, a) => sum + (a.quantity * a.currentPrice), 0);
   
@@ -119,10 +121,17 @@ export const PortfolioHealth: React.FC<PortfolioHealthProps> = ({ assets }) => {
           </div>
         </div>
         
-        <button className="mt-6 w-full py-2.5 bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 border border-white/20 dark:border-white/10 rounded-xl text-xs font-bold transition-all backdrop-blur-sm text-white">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="mt-6 w-full py-2.5 bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 border border-white/20 dark:border-white/10 rounded-xl text-xs font-bold transition-all backdrop-blur-sm text-white"
+        >
            {t('View Rebalancing Plan')}
         </button>
       </div>
+
+      {isModalOpen && (
+        <RebalancingModal assets={assets} onClose={() => setIsModalOpen(false)} />
+      )}
     </div>
   );
 };
