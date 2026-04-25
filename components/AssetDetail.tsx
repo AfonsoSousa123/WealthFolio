@@ -2,11 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Asset, AIAssetAnalysisResult, RealTimeAssetData } from '../types';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Line, ComposedChart, Brush, ReferenceLine } from 'recharts';
 import { getLiveHistory } from '../services/financeService';
-import { generateHistory, calculateSMA, calculateRSI } from './Charts';
+import { generateHistory, calculateSMA, calculateRSI, TechnicalAnalysisChart, calculateEMA, calculateMACD, calculateBollingerBands } from './Charts';
 import { analyzeAsset, getRealTimeAssetData } from '../services/geminiService';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, RefreshCw, Loader2, Info, TrendingUp, TrendingDown, Target, Brain, ExternalLink, Clock, Sparkles, HelpCircle, Zap, Activity, Copy, Check } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Loader2, Info, TrendingUp, TrendingDown, Target, Brain, ExternalLink, Clock, Sparkles, HelpCircle, Zap, Activity, Copy, Check, Filter } from 'lucide-react';
 
 interface AssetDetailProps {
   asset: Asset;
@@ -27,12 +27,30 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
   const [isLoadingChart, setIsLoadingChart] = useState(true);
 
   // Technical Indicators Toggles
-  const [showSMA20, setShowSMA20] = useState(false);
+  const [showSMA, setShowSMA] = useState(false);
+  const [showEMA, setShowEMA] = useState(false);
+  const [showBB, setShowBB] = useState(false);
+  const [showMACD, setShowMACD] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
+  const [showTrend, setShowTrend] = useState(false);
 
   // Zoom State
-  const [zoomDomain, setZoomDomain] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const [brushKey, setBrushKey] = useState(0);
+  const [zoomState, setZoomState] = useState<{
+    left: string | number | null;
+    right: string | number | null;
+    refAreaLeft: string | number | null;
+    refAreaRight: string | number | null;
+    top: string | number;
+    bottom: string | number;
+  }>({
+    left: null,
+    right: null,
+    refAreaLeft: null,
+    refAreaRight: null,
+    top: 'auto',
+    bottom: 'auto',
+  });
+  
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = (text: string, fieldName: string) => {
@@ -41,13 +59,15 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
     setTimeout(() => setCopiedField(null), 2000);
   };
   
-  const handleBrushChange = (domain: any) => {
-    setZoomDomain({ startIndex: domain.startIndex, endIndex: domain.endIndex });
-  };
-
   const resetZoom = () => {
-    setZoomDomain({});
-    setBrushKey(prev => prev + 1);
+    setZoomState({
+      left: null,
+      right: null,
+      refAreaLeft: null,
+      refAreaRight: null,
+      top: 'auto',
+      bottom: 'auto',
+    });
   };
 
   const fetchHistory = React.useCallback(async () => {
@@ -188,34 +208,40 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
       data = generateHistory(displayPrice, timeRange);
     }
     
-    // Automatic trend-following SMA
-    if (data.length >= smaPeriod && smaPeriod >= 2) {
-      data = calculateSMA(data, smaPeriod);
-    }
-
-    // Specific SMA 20 requested by user
-    if (showSMA20 && data.length >= 20) {
-      // If the automatic SMA is already 20, we don't need to recalculate
-      if (smaPeriod !== 20) {
-        data = calculateSMA(data, 20);
-      } else {
-        // Just ensure sma20 key exists if smaPeriod was 20
-        data = data.map(d => ({ ...d, sma20: d.sma }));
-      }
-    }
-
-    if (showRSI && data.length >= 15) {
-      data = calculateRSI(data, 14);
-    }
+    if (showSMA) data = calculateSMA(data, 20);
+    if (showEMA) data = calculateEMA(data, 20);
+    if (showRSI) data = calculateRSI(data, 14);
+    if (showMACD) data = calculateMACD(data);
+    if (showBB) data = calculateBollingerBands(data);
 
     return data;
-  }, [displayPrice, timeRange, liveChartData, smaPeriod, realData, showSMA20, showRSI]);
+  }, [displayPrice, timeRange, liveChartData, realData, showSMA, showEMA, showRSI, showMACD, showBB]);
+
+  const trendLineData = useMemo(() => {
+    if (!showTrend || chartData.length === 0) return null;
+    
+    const n = chartData.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    
+    chartData.forEach((point, i) => {
+      sumX += i;
+      sumY += point.price;
+      sumXY += i * point.price;
+      sumXX += i * i;
+    });
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    return [
+      { date: chartData[0].date, trend: intercept },
+      { date: chartData[n - 1].date, trend: slope * (n - 1) + intercept }
+    ];
+  }, [chartData, showTrend]);
 
   const isZoomed = useMemo(() => {
-    if (zoomDomain.startIndex === undefined || zoomDomain.endIndex === undefined) return false;
-    // Check if it's actually zoomed in (not covering full range)
-    return zoomDomain.startIndex > 0 || zoomDomain.endIndex < chartData.length - 1;
-  }, [zoomDomain, chartData.length]);
+    return zoomState.left !== null || zoomState.right !== null;
+  }, [zoomState.left, zoomState.right]);
 
   const handleAIAnalysis = async () => {
     setIsAnalyzing(true);
@@ -253,9 +279,9 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
               </span>
             </h1>
             {asset.isin && (
-              <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200 mt-1 flex items-center gap-3">
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-3">
                 {asset.isin}
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 bg-slate-500/5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 dark:text-slate-400 bg-slate-500/5">
                   ISIN
                 </span>
                 <button 
@@ -267,25 +293,24 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
                 </button>
               </h2>
             )}
+            {asset.wkn && (
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-3">
+                {asset.wkn}
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border border-slate-500/30 text-slate-400 dark:text-slate-400 bg-slate-500/5">
+                  WKN
+                </span>
+                <button 
+                  onClick={() => handleCopy(asset.wkn!, 'wkn')}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ml-1"
+                  title="Copy WKN"
+                >
+                  {copiedField === 'wkn' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </h2>
+            )}
             <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">{asset.name}</p>
             
             <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-slate-500 dark:text-slate-400">
-              {asset.wkn && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <span>WKN</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300 font-medium">{asset.wkn}</span>
-                    <button 
-                      onClick={() => handleCopy(asset.wkn!, 'wkn')}
-                      className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                      title="Copy WKN"
-                    >
-                      {copiedField === 'wkn' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <span className="text-slate-300 dark:text-slate-700">|</span>
-                </>
-              )}
               <div className="flex items-center gap-1.5">
                 <span>Ticker</span>
                 <span className="font-mono text-slate-700 dark:text-slate-300 font-medium">{asset.symbol}</span>
@@ -353,54 +378,72 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
         {/* Main Chart Column */}
         <div className="lg:col-span-2 space-y-8">
           {/* Chart Card */}
-          <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 p-6 transition-colors">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-white/5 p-6 transition-colors overflow-hidden">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h3 className="text-slate-800 dark:text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
                 {t('Performance')}
-                <span className="text-[10px] font-normal normal-case px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">{t('Live Data')}</span>
+                <span className="text-[10px] font-normal normal-case px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 border border-blue-100 dark:border-blue-800/50">{t('Live Data')}</span>
               </h3>
-              <div className="flex flex-wrap gap-2 items-center">
-                {/* Technical Toggles */}
-                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 mr-2">
-                  <button
-                    onClick={() => setShowSMA20(!showSMA20)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${showSMA20 ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                  >
-                    <Activity className="w-3 h-3" />
-                    SMA 20
-                  </button>
-                  <button
-                    onClick={() => setShowRSI(!showRSI)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${showRSI ? 'bg-white dark:bg-slate-700 text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                  >
-                    <TrendingUp className="w-3 h-3" />
-                    RSI 14
-                  </button>
-                </div>
-
-                {isZoomed && (
-                  <button
-                    onClick={resetZoom}
-                    className="px-3 py-1 text-xs font-bold rounded-lg transition-colors border border-rose-500/30 text-rose-500 hover:bg-rose-500/5 mr-2 flex items-center gap-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                    {t('Reset Zoom')}
-                  </button>
-                )}
+              <div className="flex flex-wrap gap-1.5 items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
                 {[1, 7, 30, 90, 365, 1825, 3650].map(days => (
                   <button
                     key={days}
                     onClick={() => setTimeRange(days)}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors border ${timeRange === days ? 'bg-blue-600 border-blue-600 text-white' : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${timeRange === days ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-cyan-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                   >
                     {days === 1 ? '1D' : days === 7 ? '1W' : days === 30 ? '1M' : days === 365 ? '1Y' : days === 1825 ? '5Y' : days === 3650 ? 'MAX' : `${days/30}M`}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="h-[400px] w-full relative">
+
+            <div className="flex flex-wrap items-center gap-3 mb-6 pb-6 border-b border-slate-100 dark:border-slate-800/50">
+               {/* Advanced Technical Toggles */}
+               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-400/50 transition-colors">
+                 <input type="checkbox" checked={showSMA} onChange={e => setShowSMA(e.target.checked)} className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-700" />
+                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">SMA 20</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:border-indigo-400/50 transition-colors">
+                 <input type="checkbox" checked={showEMA} onChange={e => setShowEMA(e.target.checked)} className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-700" />
+                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">EMA 20</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:border-violet-400/50 transition-colors">
+                 <input type="checkbox" checked={showBB} onChange={e => setShowBB(e.target.checked)} className="w-3.5 h-3.5 rounded text-violet-600 focus:ring-violet-500 dark:bg-slate-700" />
+                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Bollinger</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:border-purple-400/50 transition-colors">
+                 <input type="checkbox" checked={showRSI} onChange={e => setShowRSI(e.target.checked)} className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 dark:bg-slate-700" />
+                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">RSI</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-800/30 px-2.5 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 hover:border-emerald-400/50 transition-colors">
+                 <input type="checkbox" checked={showTrend} onChange={e => setShowTrend(e.target.checked)} className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 dark:bg-slate-700" />
+                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Trend</span>
+               </label>
+               
+               <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
+               
+               <button
+                 onClick={() => setShowMACD(!showMACD)}
+                 className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center gap-2 border ${showMACD ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-500/50 text-orange-600' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 text-slate-500'}`}
+               >
+                 <Zap className="w-3 h-3" />
+                 MACD
+               </button>
+
+               {isZoomed && (
+                 <button
+                   onClick={resetZoom}
+                   className="px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors border border-rose-500/30 text-rose-500 hover:bg-rose-500/5 flex items-center gap-1.5 uppercase tracking-wider"
+                 >
+                   <RefreshCw className="w-3 h-3" />
+                   {t('Reset Zoom')}
+                 </button>
+               )}
+            </div>
+
+            <div className="h-[450px] w-full relative">
               <AnimatePresence>
-                {isLoadingChart && (
+                {isLoadingChart && liveChartData.length <= 1 && (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -414,143 +457,29 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
                     <motion.p 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]"
+                      className="mt-4 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]"
                     >
                       {t('Loading Markets')}...
                     </motion.p>
                   </motion.div>
                 )}
               </AnimatePresence>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPriceDetail" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={darkMode ? 0.4 : 0.2}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
-                    tickFormatter={(val) => {
-                      const d = new Date(val);
-                      if (isNaN(d.getTime())) return val;
-                      if (timeRange <= 1) {
-                        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      }
-                      if (timeRange <= 7) {
-                        return d.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                      }
-                      if (timeRange >= 1825) {
-                        return d.toLocaleDateString([], { year: '2-digit', month: 'short' });
-                      }
-                      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                    }}
-                    axisLine={false}
-                    tickLine={false}
-                    minTickGap={30}
-                    dy={10}
-                  />
-                  <YAxis 
-                    domain={['auto', 'auto']} 
-                    tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(val) => `€${val}`}
-                    width={50}
-                    yAxisId="price"
-                    dx={-10}
-                  />
-                  <YAxis 
-                    yAxisId="rsi"
-                    orientation="right"
-                    domain={[0, 100]}
-                    hide={!showRSI}
-                    tick={{fontSize: 8, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}}
-                    axisLine={false}
-                    tickLine={false}
-                    width={25}
-                    dx={10}
-                  />
-                  <RechartsTooltip
-                    cursor={{ stroke: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                    contentStyle={{ 
-                      borderRadius: '12px', 
-                      border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                      backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.9)',
-                      color: darkMode ? '#f8fafc' : '#0f172a',
-                      boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                      backdropFilter: 'blur(12px)',
-                      padding: '12px 16px'
-                    }}
-                    itemStyle={{
-                      color: darkMode ? '#f8fafc' : '#0f172a',
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      paddingTop: '4px'
-                    }}
-                    labelStyle={{ 
-                      color: darkMode ? '#94a3b8' : '#64748b', 
-                      marginBottom: '4px', 
-                      fontSize: '11px', 
-                      fontWeight: 600, 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.05em' 
-                    }}
-                    labelFormatter={(label) => {
-                      const d = new Date(label);
-                      if (isNaN(d.getTime())) return label;
-                      if (timeRange <= 7) {
-                        return d.toLocaleString(undefined, {
-                          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-                        });
-                      }
-                      return d.toLocaleDateString(undefined, { 
-                         year: 'numeric', 
-                         month: 'short', 
-                         day: 'numeric'
-                      });
-                    }}
-                    formatter={(value: any, name: string) => {
-                      if (typeof value === 'number') {
-                         if (name === 'RSI 14') return [value.toFixed(2), name];
-                         return [`€${value.toFixed(2)}`, name];
-                      }
-                      return [value, name];
-                    }}
-                  />
-                  <Area yAxisId="price" type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorPriceDetail)" name="Price" />
-                  <Line yAxisId="price" type="monotone" dataKey={`sma${smaPeriod}`} stroke="#f59e0b" strokeWidth={2} dot={false} name={`SMA (${smaPeriod})`} />
-                  {showSMA20 && <Line yAxisId="price" type="monotone" dataKey="sma20" stroke="#10b981" strokeWidth={2} dot={false} name="SMA 20" strokeDasharray="5 5" />}
-                  {showRSI && (
-                    <>
-                      <ReferenceLine yAxisId="rsi" y={70} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'right', value: '70', fill: '#ef4444', fontSize: 8 }} />
-                      <ReferenceLine yAxisId="rsi" y={30} stroke="#10b981" strokeDasharray="3 3" label={{ position: 'right', value: '30', fill: '#10b981', fontSize: 8 }} />
-                      <Line yAxisId="rsi" type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} name="RSI 14" />
-                    </>
-                  )}
-                  <Brush 
-                    key={brushKey}
-                    dataKey="date" 
-                    height={30} 
-                    stroke={darkMode ? "#475569" : "#cbd5e1"}
-                    fill={darkMode ? "rgba(15, 23, 42, 0.5)" : "rgba(240, 249, 255, 0.5)"}
-                    travellerWidth={10}
-                    startIndex={zoomDomain.startIndex}
-                    endIndex={zoomDomain.endIndex}
-                    onChange={handleBrushChange}
-                    tickFormatter={(val) => {
-                      const d = new Date(val);
-                      if (isNaN(d.getTime())) return val;
-                      if (timeRange <= 1) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      if (timeRange <= 7) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                      if (timeRange >= 1825) return d.toLocaleDateString([], { year: 'numeric' });
-                      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                    }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              
+              <TechnicalAnalysisChart 
+                data={chartData}
+                height={450}
+                darkMode={darkMode}
+                timeRange={timeRange}
+                showSMA={showSMA}
+                showEMA={showEMA}
+                showBB={showBB}
+                showMACD={showMACD}
+                showRSI={showRSI}
+                showTrend={showTrend}
+                zoomState={zoomState}
+                setZoomState={setZoomState}
+                trendLineData={trendLineData}
+              />
             </div>
           </div>
 
@@ -574,14 +503,31 @@ export const AssetDetail: React.FC<AssetDetailProps> = ({ asset, darkMode, onBac
             <div className="flex justify-between items-start mb-4">
                <h3 className="text-slate-800 dark:text-white font-bold text-lg">{t('About')} {asset.name}</h3>
                {isLoadingRealData ? (
-                 <span className="bg-slate-100 dark:bg-slate-800 animate-pulse text-slate-400 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide">
-                   {t('Syncing...')}
-                 </span>
+                 <div className="flex items-center gap-2">
+                   <span className="bg-slate-100 dark:bg-slate-800 animate-pulse text-slate-400 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide">
+                     {t('Syncing...')}
+                   </span>
+                   <button 
+                     disabled
+                     className="p-1 rounded-lg text-slate-400 opacity-50"
+                   >
+                     <Loader2 className="w-4 h-4 animate-spin" />
+                   </button>
+                 </div>
                ) : realData && (
                  <div className="flex flex-col items-end gap-1">
-                   <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide">
-                     {t('Live Data')}
-                   </span>
+                   <div className="flex items-center gap-2">
+                     <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide">
+                       {t('Live Data')}
+                     </span>
+                     <button 
+                       onClick={handleManualRefresh}
+                       className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all hover:rotate-180 duration-500"
+                       title={t('Refresh Data')}
+                     >
+                       <RefreshCw className="w-4 h-4" />
+                     </button>
+                   </div>
                    {realData.lastUpdated && (
                      <span className="text-[10px] text-slate-400 flex items-center gap-1">
                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

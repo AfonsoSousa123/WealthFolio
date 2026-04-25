@@ -100,6 +100,7 @@ const resources = {
       "Commodity": "Commodity",
       "Crypto": "Crypto",
       "Cash": "Cash",
+      "Bond": "Bond",
       "Investimento": "Investment",
       "Estratégia": "Strategy",
       "% de Alocação": "Allocation %",
@@ -125,7 +126,8 @@ const resources = {
       "Distribution Policy": "Distribution Policy",
       "Ações": "Stock",
       "Ouro": "Gold",
-      "Cripto": "Crypto"
+      "Cripto": "Crypto",
+      "Obrigações": "Bond"
     }
   },
   'pt-PT': {
@@ -225,6 +227,7 @@ const resources = {
       "Commodity": "Matéria-Prima",
       "Crypto": "Cripto",
       "Cash": "Dinheiro",
+      "Bond": "Obrigações",
       "Select Asset": "Selecionar Ativo",
       "Investimento": "Investimento",
       "Estratégia": "Estratégia",

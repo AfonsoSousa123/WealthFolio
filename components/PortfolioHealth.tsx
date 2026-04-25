@@ -91,7 +91,7 @@ export const PortfolioHealth: React.FC<PortfolioHealthProps> = ({ assets }) => {
       </div>
 
       {/* Diversification Card */}
-      <div className="bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-slate-900 dark:to-slate-800 rounded-2xl shadow-lg border border-blue-500 dark:border-slate-700 p-6 flex flex-col justify-between text-white transition-all hover:scale-[1.02] duration-300 group overflow-hidden">
+      <div className="relative bg-gradient-to-br from-blue-600 to-cyan-500 dark:from-slate-900 dark:to-slate-800 rounded-2xl shadow-lg border border-blue-500 dark:border-slate-700 p-6 flex flex-col justify-between text-white transition-all hover:scale-[1.02] duration-300 group overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
            <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
         </div>

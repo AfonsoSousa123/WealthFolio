@@ -197,6 +197,7 @@ export const AssetTable: React.FC<AssetTableProps> = ({ assets, onDelete, onAler
                         asset.type === 'ETF' ? 'border border-violet-500/30 text-violet-400 bg-violet-500/5' : 
                         asset.type === 'Commodity' || asset.type === 'Ouro' ? 'border border-amber-500/30 text-amber-400 bg-amber-500/5' : 
                         asset.type === 'Crypto' || asset.type === 'Cripto' ? 'border border-orange-500/30 text-orange-400 bg-orange-500/5' :
+                        asset.type === 'Bond' || asset.type === 'Obrigações' ? 'border border-emerald-500/30 text-emerald-400 bg-emerald-500/5' :
                         'border border-slate-500/30 text-slate-400 bg-slate-500/5'}`}>
                       {t(asset.type)}
                     </span>

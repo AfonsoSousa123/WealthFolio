@@ -48,7 +48,13 @@ export const getRealTimeAssetData = async (symbol: string, assetName: string) =>
       }
     });
 
-    return JSON.parse(response.text);
+    const text = response.text;
+    if (!text) {
+      console.error("Gemini API returned an empty or undefined text response. Response object:", JSON.stringify(response));
+      return null;
+    }
+    
+    return JSON.parse(text);
   } catch (error) {
     console.error("Error fetching real-time data:", error);
     return null;
@@ -80,7 +86,13 @@ export const analyzePortfolio = async (assets: Asset[]): Promise<AIAnalysisResul
       }
     });
 
-    return JSON.parse(response.text);
+    const text = response.text;
+    if (!text) {
+      console.error("Gemini API returned an empty or undefined text response for analyzePortfolio. Response object:", JSON.stringify(response));
+      return null;
+    }
+    
+    return JSON.parse(text);
   } catch (error) {
     console.error("Error analyzing portfolio:", error);
     return null;
@@ -111,7 +123,13 @@ export const analyzeAsset = async (asset: Asset, realTimeData: any = null) => {
       }
     });
 
-    return JSON.parse(response.text);
+    const text = response.text;
+    if (!text) {
+      console.error("Gemini API returned an empty or undefined text response for analyzeAsset. Response object:", JSON.stringify(response));
+      return null;
+    }
+    
+    return JSON.parse(text);
   } catch (error) {
     console.error("Error analyzing asset:", error);
     return null;

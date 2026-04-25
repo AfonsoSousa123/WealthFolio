@@ -3,7 +3,8 @@ export enum AssetType {
   ETF = 'ETF',
   COMMODITY = 'Commodity',
   CRYPTO = 'Crypto',
-  CASH = 'Cash'
+  CASH = 'Cash',
+  BOND = 'Bond'
 }
 
 export interface Asset {

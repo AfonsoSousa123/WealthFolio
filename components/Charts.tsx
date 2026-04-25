@@ -162,6 +162,247 @@ export const calculateRSI = (data: any[], period: number = 14) => {
   return result;
 };
 
+// Technical Analysis Data Generation Component
+export const TechnicalAnalysisChart: React.FC<{
+  data: any[];
+  height: number | string;
+  darkMode: boolean;
+  timeRange: number;
+  showSMA?: boolean;
+  showEMA?: boolean;
+  showBB?: boolean;
+  showMACD?: boolean;
+  showRSI?: boolean;
+  showTrend?: boolean;
+  zoomState: any;
+  setZoomState: (zoom: any) => void;
+  refLines?: number[];
+  setRefLines?: (lines: number[]) => void;
+  isDrawMode?: boolean;
+  setIsDrawMode?: (mode: boolean) => void;
+  trendLineData?: any[] | null;
+}> = ({ 
+  data: analysisData, 
+  height, 
+  darkMode, 
+  timeRange, 
+  showSMA, 
+  showEMA, 
+  showBB, 
+  showMACD, 
+  showRSI, 
+  showTrend,
+  zoomState,
+  setZoomState,
+  refLines = [],
+  setRefLines,
+  isDrawMode,
+  setIsDrawMode,
+  trendLineData
+}) => {
+  const { t } = useTranslation();
+
+  const handleChartClick = (e: any) => {
+    if (isDrawMode && setRefLines && e && e.activePayload && e.activePayload[0]) {
+      const price = e.activePayload[0].payload.price;
+      setRefLines([...refLines, price]);
+      if (setIsDrawMode) setIsDrawMode(false);
+    }
+  };
+
+  const zoom = () => {
+    let { refAreaLeft, refAreaRight } = zoomState;
+    if (refAreaLeft === refAreaRight || refAreaRight === null) {
+      setZoomState({ ...zoomState, refAreaLeft: null, refAreaRight: null });
+      return;
+    }
+    if (refAreaLeft !== null && refAreaRight !== null) {
+      if (refAreaLeft > refAreaRight) [refAreaLeft, refAreaRight] = [refAreaRight, refAreaLeft];
+      setZoomState({ ...zoomState, refAreaLeft: null, refAreaRight: null, left: refAreaLeft, right: refAreaRight });
+    }
+  };
+
+  return (
+    <div className={`transition-all duration-300 ${showRSI || showMACD ? 'h-[600px]' : (typeof height === 'number' ? `${height}px` : height)} flex flex-col relative`}>
+      <div className={`${showRSI && showMACD ? 'h-[50%]' : (showRSI || showMACD) ? 'h-[65%]' : 'h-full'} w-full flex-grow`}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ComposedChart 
+            data={analysisData} 
+            syncId="techChart"
+            onClick={handleChartClick}
+            onMouseDown={(e) => !isDrawMode && e && setZoomState({ ...zoomState, refAreaLeft: e.activeLabel || null })}
+            onMouseMove={(e) => !isDrawMode && zoomState.refAreaLeft && e && setZoomState({ ...zoomState, refAreaRight: e.activeLabel || null })}
+            onMouseUp={zoom}
+            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            style={{ cursor: isDrawMode ? 'crosshair' : 'default' }}
+          >
+            <defs>
+              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={darkMode ? 0.4 : 0.2}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+            <XAxis 
+              dataKey="date" 
+              domain={[zoomState.left || 'auto', zoomState.right || 'auto']}
+              allowDataOverflow
+              tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
+              tickFormatter={(val) => {
+                const d = new Date(val);
+                if (timeRange <= 7) {
+                  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+                return `${d.getMonth()+1}/${d.getDate()}`;
+              }}
+              axisLine={false}
+              tickLine={false}
+              dy={10}
+            />
+            <YAxis 
+              domain={[zoomState.bottom, zoomState.top]} 
+              allowDataOverflow
+              tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(val) => `€${val}`}
+              dx={-10}
+            />
+            <RechartsTooltip
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const dateObj = new Date(label);
+                  const formattedLabel = isNaN(dateObj.getTime()) ? label : 
+                    timeRange <= 7 
+                      ? dateObj.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+                      : dateObj.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+
+                  return (
+                    <div style={{
+                      borderRadius: '12px',
+                      border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                      backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.9)',
+                      boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                      backdropFilter: 'blur(12px)',
+                      padding: '12px 16px'
+                    }} className="min-w-[160px] animate-in fade-in zoom-in duration-150">
+                      <p style={{
+                        color: darkMode ? '#94a3b8' : '#64748b',
+                        marginBottom: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }} className="border-b border-slate-200/50 dark:border-slate-700/50 pb-2 mb-2">{formattedLabel}</p>
+                      <div className="space-y-1.5">
+                        {payload.map((entry: any, index: number) => {
+                          if (entry.dataKey === 'bbUpper' || entry.dataKey === 'bbLower') return null;
+                          if (!showSMA && entry.dataKey === 'sma') return null;
+                          if (!showSMA && entry.dataKey === 'sma20') return null;
+                          if (!showEMA && entry.dataKey === 'ema') return null;
+                          if (!showEMA && entry.dataKey === 'ema20') return null;
+                          return (
+                            <div key={index} className="flex items-center justify-between gap-4" style={{ color: darkMode ? '#f8fafc' : '#0f172a', fontWeight: 600, fontSize: '13px', paddingTop: '4px' }}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.fill }}></div>
+                                <span className="font-medium" style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>{entry.name}:</span>
+                              </div>
+                              <span>
+                                {typeof entry.value === 'number' ? 
+                                  (entry.name === 'RSI' || entry.name === 'Histogram' ? entry.value.toFixed(2) : `€${entry.value.toFixed(2)}`) 
+                                  : entry.value}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {showBB && payload.some(p => p.dataKey === 'bbUpper') && (
+                          <div className="flex items-center justify-between gap-4 pt-2 mt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">BB Range:</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                              €{payload.find(p => p.dataKey === 'bbLower')?.value?.toFixed(2)} - €{payload.find(p => p.dataKey === 'bbUpper')?.value?.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            
+            <Area type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" name="Price" activeDot={{ r: 6 }} />
+            {showBB && (
+              <>
+                <Line type="monotone" dataKey="bbUpper" stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="BB Upper" />
+                <Line type="monotone" dataKey="bbLower" stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="BB Lower" />
+                <Area type="monotone" dataKey="bbUpper" stroke="none" fill="#94a3b8" fillOpacity={0.1} />
+              </>
+            )}
+            {showSMA && <Line type="monotone" dataKey="sma20" stroke="#f59e0b" strokeWidth={2} dot={false} name="SMA (20)" />}
+            {showEMA && <Line type="monotone" dataKey="ema20" stroke="#8b5cf6" strokeWidth={2} dot={false} name="EMA (20)" />}
+            
+            {showTrend && trendLineData && (
+              <Line 
+                data={trendLineData} 
+                type="monotone" 
+                dataKey="trend" 
+                stroke="#10b981" 
+                strokeWidth={2} 
+                strokeDasharray="5 5" 
+                dot={false} 
+                name="Trend"
+                isAnimationActive={false}
+              />
+            )}
+            {refLines.map((y, i) => (
+              <ReferenceLine key={i} y={y} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'right', value: `€${y.toFixed(2)}`, fill: '#ef4444', fontSize: 10 }} />
+            ))}
+            {zoomState.refAreaLeft && zoomState.refAreaRight && (
+              <ReferenceArea {...({ x1: zoomState.refAreaLeft, x2: zoomState.refAreaRight, fill: "#3b82f6", fillOpacity: 0.1 } as any)} />
+            )}
+            {(!showRSI && !showMACD) && <Brush dataKey="date" height={30} stroke="#3b82f6" fill={darkMode ? '#1e293b' : '#f8fafc'} tickFormatter={() => ''} />}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+
+      {showRSI && (
+        <div className={`${showMACD ? 'h-[25%]' : 'h-[35%]'} w-full mt-2`}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ComposedChart data={analysisData} syncId="techChart" margin={{ top: 5, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+              <XAxis dataKey="date" domain={[zoomState.left || 'auto', zoomState.right || 'auto']} allowDataOverflow hide />
+              <YAxis domain={[0, 100]} tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} axisLine={false} tickLine={false} ticks={[30, 70]} />
+              <RechartsTooltip />
+              <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" />
+              <ReferenceLine y={30} stroke="#10b981" strokeDasharray="3 3" />
+              <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={1.5} dot={false} name="RSI" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {showMACD && (
+        <div className={`${showRSI ? 'h-[25%]' : 'h-[35%]'} w-full mt-2`}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ComposedChart data={analysisData} syncId="techChart" margin={{ top: 5, right: 30, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+              <XAxis dataKey="date" domain={[zoomState.left || 'auto', zoomState.right || 'auto']} allowDataOverflow hide />
+              <YAxis tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} axisLine={false} tickLine={false} />
+              <Bar dataKey="macdHist" fill="#10b981" name="Histogram" />
+              <Line type="monotone" dataKey="macdLine" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="MACD" />
+              <Line type="monotone" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Signal" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'overview' | 'analysis'>('analysis');
@@ -170,6 +411,7 @@ export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>(assets[0]?.id || '');
   const [timeRange, setTimeRange] = useState<number>(1); // Days
   const [showSMA, setShowSMA] = useState(false);
+  const [showEMA, setShowEMA] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
   const [showMACD, setShowMACD] = useState(false);
   const [showBB, setShowBB] = useState(false);
@@ -292,6 +534,9 @@ export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
     if (showSMA) {
       data = calculateSMA(data, 20); // 20-period SMA
     }
+    if (showEMA) {
+      data = calculateEMA(data, 20); // 20-period EMA
+    }
     if (showRSI) {
       data = calculateRSI(data);
     }
@@ -303,7 +548,7 @@ export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
     }
 
     return data;
-  }, [selectedAssetId, timeRange, showSMA, showRSI, showMACD, showBB, assets]);
+  }, [selectedAssetId, timeRange, showSMA, showEMA, showRSI, showMACD, showBB, assets]);
 
   // Zoom handlers
   const zoom = () => {
@@ -508,6 +753,10 @@ export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">SMA (20)</span>
              </label>
              <label className="flex items-center gap-2 cursor-pointer">
+               <input type="checkbox" checked={showEMA} onChange={e => setShowEMA(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700" />
+               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">EMA (20)</span>
+             </label>
+             <label className="flex items-center gap-2 cursor-pointer">
                <input type="checkbox" checked={showBB} onChange={e => setShowBB(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700" />
                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Bollinger Bands</span>
              </label>
@@ -549,260 +798,31 @@ export const Charts: React.FC<ChartsProps> = ({ assets, darkMode }) => {
              )}
           </div>
 
-          <div className={`transition-all duration-300 ${showRSI || showMACD ? 'h-[600px]' : 'h-96'} flex flex-col relative`}>
+          <div className="relative">
             {isLoadingChart && analysisData.length <= 1 && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-xl">
                 <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             )}
-            <div className={`${showRSI && showMACD ? 'h-[50%]' : (showRSI || showMACD) ? 'h-[65%]' : 'h-full'} w-full flex-grow`}>
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <ComposedChart 
-                  data={analysisData} 
-                  syncId="techChart"
-                  onClick={handleChartClick}
-                  onMouseDown={(e) => !isDrawMode && e && setZoomState(prev => ({ ...prev, refAreaLeft: e.activeLabel || null }))}
-                  onMouseMove={(e) => !isDrawMode && zoomState.refAreaLeft && e && setZoomState(prev => ({ ...prev, refAreaRight: e.activeLabel || null }))}
-                  onMouseUp={zoom}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  style={{ cursor: isDrawMode ? 'crosshair' : 'default' }}
-                >
-                  <defs>
-                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={darkMode ? 0.4 : 0.2}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    domain={[zoomState.left || 'auto', zoomState.right || 'auto']}
-                    allowDataOverflow
-                    tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
-                    tickFormatter={(val) => {
-                      const d = new Date(val);
-                      if (timeRange <= 7) {
-                        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                      }
-                      return `${d.getMonth()+1}/${d.getDate()}`;
-                    }}
-                    axisLine={false}
-                    tickLine={false}
-                    dy={10}
-                  />
-                  <YAxis 
-                    domain={[zoomState.bottom, zoomState.top]} 
-                    allowDataOverflow
-                    tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} 
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(val) => `€${val}`}
-                    dx={-10}
-                  />
-                  <RechartsTooltip
-                    content={({ active, payload, label }) => {
-                      if (active && payload && payload.length) {
-                        const dateObj = new Date(label);
-                        const formattedLabel = isNaN(dateObj.getTime()) ? label : 
-                          timeRange <= 7 
-                            ? dateObj.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-                            : dateObj.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-
-                        return (
-                          <div style={{
-                            borderRadius: '12px',
-                            border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                            backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.9)',
-                            boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                            backdropFilter: 'blur(12px)',
-                            padding: '12px 16px'
-                          }} className="min-w-[160px] animate-in fade-in zoom-in duration-150">
-                            <p style={{
-                              color: darkMode ? '#94a3b8' : '#64748b',
-                              marginBottom: '4px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em'
-                            }} className="border-b border-slate-200/50 dark:border-slate-700/50 pb-2 mb-2">{formattedLabel}</p>
-                            <div className="space-y-1.5">
-                              {payload.map((entry: any, index: number) => {
-                                if (entry.dataKey === 'bbUpper' || entry.dataKey === 'bbLower') return null; // Combined with range or secondary
-                                return (
-                                  <div key={index} className="flex items-center justify-between gap-4" style={{ color: darkMode ? '#f8fafc' : '#0f172a', fontWeight: 600, fontSize: '13px', paddingTop: '4px' }}>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.fill }}></div>
-                                      <span className="font-medium" style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>{entry.name}:</span>
-                                    </div>
-                                    <span>
-                                      {typeof entry.value === 'number' ? 
-                                        (entry.name === 'RSI' || entry.name === 'Histogram' ? entry.value.toFixed(2) : `€${entry.value.toFixed(2)}`) 
-                                        : entry.value}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                              {showBB && payload.some(p => p.dataKey === 'bbUpper') && (
-                                <div className="flex items-center justify-between gap-4 pt-2 mt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">BB Range:</span>
-                                  </div>
-                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                    €{payload.find(p => p.dataKey === 'bbLower')?.value?.toFixed(2)} - €{payload.find(p => p.dataKey === 'bbUpper')?.value?.toFixed(2)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  
-                  {/* Price Area */}
-                  <Area type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" name="Price" activeDot={{ r: 6 }} />
-                  
-                  {/* Bollinger Bands */}
-                  {showBB && (
-                    <>
-                      <Line type="monotone" dataKey="bbUpper" stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="BB Upper" />
-                      <Line type="monotone" dataKey="bbLower" stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="BB Lower" />
-                      <Area type="monotone" dataKey="bbUpper" stroke="none" fill="#94a3b8" fillOpacity={0.1} />
-                    </>
-                  )}
-
-                  {/* SMA Line */}
-                  {showSMA && <Line type="monotone" dataKey="sma20" stroke="#f59e0b" strokeWidth={2} dot={false} name="SMA (20)" />}
-                  
-                  {/* Trend Line */}
-                  {trendLineData && (
-                    <Line 
-                      data={trendLineData} 
-                      type="monotone" 
-                      dataKey="trend" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                      strokeDasharray="5 5" 
-                      dot={false} 
-                      name="Trend"
-                      isAnimationActive={false}
-                    />
-                  )}
-
-                  {/* User Drawn Reference Lines */}
-                  {refLines.map((y, i) => (
-                    <ReferenceLine key={i} y={y} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'right', value: `€${y.toFixed(2)}`, fill: '#ef4444', fontSize: 10 }} />
-                  ))}
-
-                  {zoomState.refAreaLeft && zoomState.refAreaRight && (
-                    <ReferenceArea {...({ x1: zoomState.refAreaLeft, x2: zoomState.refAreaRight, fill: "#3b82f6", fillOpacity: 0.1 } as any)} />
-                  )}
-                  
-                  {/* Zoom Brush */}
-                  {(!showRSI && !showMACD) && <Brush dataKey="date" height={30} stroke="#3b82f6" fill={darkMode ? '#1e293b' : '#f8fafc'} tickFormatter={() => ''} />}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* RSI Chart */}
-            {showRSI && (
-              <div className={`${showMACD ? 'h-[25%]' : 'h-[35%]'} w-full mt-2`}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <ComposedChart 
-                    data={analysisData} 
-                    syncId="techChart"
-                    margin={{ top: 5, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                    <XAxis 
-                      dataKey="date" 
-                      domain={[zoomState.left || 'auto', zoomState.right || 'auto']}
-                      allowDataOverflow
-                      hide 
-                    />
-                    <YAxis domain={[0, 100]} tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} axisLine={false} tickLine={false} ticks={[30, 70]} />
-                    <RechartsTooltip 
-                       content={({ active, payload, label }) => {
-                         if (active && payload && payload.length) {
-                           const dateObj = new Date(label);
-                           const formattedLabel = isNaN(dateObj.getTime()) ? label : 
-                             timeRange <= 1 
-                               ? dateObj.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-                               : dateObj.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-                           return (
-                             <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-lg text-[10px] font-bold">
-                               <p className="text-slate-400 mb-1">{formattedLabel}</p>
-                               {payload.map((entry: any, index: number) => (
-                                 <div key={index} className="flex justify-between gap-3 items-center">
-                                   <span style={{ color: entry.color }}>{entry.name}:</span>
-                                   <span className="text-slate-900 dark:text-white">{entry.value.toFixed(2)}</span>
-                                 </div>
-                               ))}
-                             </div>
-                           );
-                         }
-                         return null;
-                       }}
-                    />
-                    <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" />
-                    <ReferenceLine y={30} stroke="#10b981" strokeDasharray="3 3" />
-                    <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={1.5} dot={false} name="RSI" />
-                    {!showMACD && <Brush dataKey="date" height={20} stroke="#8b5cf6" fill={darkMode ? '#1e293b' : '#f8fafc'} tickFormatter={() => ''} />}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* MACD Chart */}
-            {showMACD && (
-              <div className={`${showRSI ? 'h-[25%]' : 'h-[35%]'} w-full mt-2`}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <ComposedChart 
-                    data={analysisData} 
-                    syncId="techChart"
-                    margin={{ top: 5, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                    <XAxis 
-                      dataKey="date" 
-                      domain={[zoomState.left || 'auto', zoomState.right || 'auto']}
-                      allowDataOverflow
-                      hide 
-                    />
-                    <YAxis tick={{fontSize: 10, fill: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500}} axisLine={false} tickLine={false} />
-                    <RechartsTooltip 
-                       content={({ active, payload, label }) => {
-                         if (active && payload && payload.length) {
-                           const dateObj = new Date(label);
-                           const formattedLabel = isNaN(dateObj.getTime()) ? label : 
-                             timeRange <= 1 
-                               ? dateObj.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-                               : dateObj.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-                           return (
-                             <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-lg text-[10px] font-bold">
-                               <p className="text-slate-400 mb-1">{formattedLabel}</p>
-                               {payload.map((entry: any, index: number) => (
-                                 <div key={index} className="flex justify-between gap-3 items-center">
-                                   <span style={{ color: entry.color }}>{entry.name}:</span>
-                                   <span className="text-slate-900 dark:text-white">{entry.value.toFixed(2)}</span>
-                                 </div>
-                               ))}
-                             </div>
-                           );
-                         }
-                         return null;
-                       }}
-                    />
-                    <Bar dataKey="macdHist" fill="#10b981" name="Histogram" />
-                    <Line type="monotone" dataKey="macdLine" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="MACD" />
-                    <Line type="monotone" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Signal" />
-                    <Brush dataKey="date" height={20} stroke="#3b82f6" fill={darkMode ? '#1e293b' : '#f8fafc'} tickFormatter={() => ''} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            <TechnicalAnalysisChart 
+              data={analysisData}
+              height={384}
+              darkMode={darkMode}
+              timeRange={timeRange}
+              showSMA={showSMA}
+              showEMA={showEMA}
+              showBB={showBB}
+              showMACD={showMACD}
+              showRSI={showRSI}
+              showTrend={showTrend}
+              zoomState={zoomState}
+              setZoomState={setZoomState}
+              refLines={refLines}
+              setRefLines={setRefLines}
+              isDrawMode={isDrawMode}
+              setIsDrawMode={setIsDrawMode}
+              trendLineData={trendLineData}
+            />
           </div>
         </div>
       )}
